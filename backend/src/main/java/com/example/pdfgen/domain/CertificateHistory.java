@@ -21,6 +21,9 @@ public class CertificateHistory {
     @Column(name = "certificate_date", nullable = false)
     private LocalDate certificateDate;
 
+    @Column(name = "calibration_date")
+    private LocalDate calibrationDate;
+
     @Column(name = "expiry_date", nullable = false)
     private LocalDate expiryDate;
 
@@ -36,9 +39,10 @@ public class CertificateHistory {
     }
 
     // 편의 생성자
-    public CertificateHistory(String certificateNo, LocalDate certificateDate, LocalDate expiryDate) {
+    public CertificateHistory(String certificateNo, LocalDate certificateDate, LocalDate calibrationDate, LocalDate expiryDate) {
         this.certificateNo = certificateNo;
         this.certificateDate = certificateDate;
+        this.calibrationDate = calibrationDate;
         this.expiryDate = expiryDate;
         this.createdDate = LocalDateTime.now();
     }
@@ -72,6 +76,14 @@ public class CertificateHistory {
 
     public void setCertificateDate(LocalDate certificateDate) {
         this.certificateDate = certificateDate;
+    }
+
+    public LocalDate getCalibrationDate() {
+        return calibrationDate;
+    }
+
+    public void setCalibrationDate(LocalDate calibrationDate) {
+        this.calibrationDate = calibrationDate;
     }
 
     public LocalDate getExpiryDate() {

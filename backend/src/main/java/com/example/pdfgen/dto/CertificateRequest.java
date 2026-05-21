@@ -6,8 +6,8 @@ import java.util.List;
 public class CertificateRequest {
 
     private String certificateDate;
+    private String calibrationDate;
     private String expiryDate;
-    private String certificateSeq;
     private List<String> serialNos;
 
     // 기본 생성자
@@ -15,10 +15,10 @@ public class CertificateRequest {
     }
 
     // 편의 생성자
-    public CertificateRequest(String certificateDate, String expiryDate, String certificateSeq, List<String> serialNos) {
+    public CertificateRequest(String certificateDate, String calibrationDate, String expiryDate, List<String> serialNos) {
         this.certificateDate = certificateDate;
+        this.calibrationDate = calibrationDate;
         this.expiryDate = expiryDate;
-        this.certificateSeq = certificateSeq;
         this.serialNos = serialNos;
     }
 
@@ -39,12 +39,12 @@ public class CertificateRequest {
         this.expiryDate = expiryDate;
     }
 
-    public String getCertificateSeq() {
-        return certificateSeq;
+    public String getCalibrationDate() {
+        return calibrationDate;
     }
 
-    public void setCertificateSeq(String certificateSeq) {
-        this.certificateSeq = certificateSeq;
+    public void setCalibrationDate(String calibrationDate) {
+        this.calibrationDate = calibrationDate;
     }
 
     public List<String> getSerialNos() {
