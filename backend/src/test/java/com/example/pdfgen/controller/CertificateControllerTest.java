@@ -34,15 +34,16 @@ public class CertificateControllerTest {
     @DisplayName("성적서 발급 API를 호출하면, 데이터베이스에 이력이 완벽히 저장되고 PDF 바이너리가 응답되어야 한다.")
     void shouldCreateCertificateAndSaveToDatabase() throws Exception {
         // given
-        // 테스트용 입력 JSON Payload 정의 (2026-05-20 날짜에 9999 일련번호 조합 -> OP202605209999)
+        // 테스트용 입력 JSON Payload 정의 (2026-05-20 날짜, 다중 시리얼 조합)
         String requestJsonPayload = "{"
-                + "\"certificateSeq\":\"9999\","
                 + "\"certificateDate\":\"2026-05-20\","
+                + "\"calibrationDate\":\"2026-05-20\","
                 + "\"expiryDate\":\"2027-05-20\","
                 + "\"serialNos\":[\"TEST-SERIAL-A\", \"TEST-SERIAL-B\", \"TEST-SERIAL-C\"]"
                 + "}";
 
-        String expectedCertificateNo = "OP202605209999";
+        // 현재 채번 로직: OP + 날짜(yyyyMMdd) + 0001
+        String expectedCertificateNo = "OP202605200001";
 
         // when
         // MockMvc를 이용하여 API 컨트롤러 호출 테스트 진행

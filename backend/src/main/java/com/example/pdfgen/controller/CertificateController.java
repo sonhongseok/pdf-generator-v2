@@ -5,8 +5,8 @@ import com.example.pdfgen.domain.CertificateHistory;
 import com.example.pdfgen.domain.CertificateSerialMapping;
 import com.example.pdfgen.dto.CertificateRequest;
 import com.example.pdfgen.repository.CertificateHistoryRepository;
-import com.lowagie.text.DocumentException;
-import com.example.pdfgen.service.PdfGenerationService;
+import com.example.pdfgen.service.DocxTemplateService;
+import com.example.pdfgen.service.LibreOfficePdfConverter;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.*;
 import com.example.pdfgen.util.ResourceInitializer;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -29,13 +30,16 @@ import java.util.stream.Collectors;
 public class CertificateController {
 
     private final CertificateHistoryRepository certificateHistoryRepository;
-    private final PdfGenerationService pdfGenerationService;
+    private final DocxTemplateService docxTemplateService;
+    private final LibreOfficePdfConverter libreOfficePdfConverter;
 
     // 생성자 주입 및 기동 시 리소스 초기화
     public CertificateController(CertificateHistoryRepository certificateHistoryRepository,
-            PdfGenerationService pdfGenerationService) {
+            DocxTemplateService docxTemplateService,
+            LibreOfficePdfConverter libreOfficePdfConverter) {
         this.certificateHistoryRepository = certificateHistoryRepository;
-        this.pdfGenerationService = pdfGenerationService;
+        this.docxTemplateService = docxTemplateService;
+        this.libreOfficePdfConverter = libreOfficePdfConverter;
 
         // 3단계 필수 리소스(한글 폰트 및 이미지 자산) 자동 준비
         ResourceInitializer.initializeResources();
@@ -95,35 +99,55 @@ public class CertificateController {
                     HttpStatus.BAD_REQUEST);
         }
 
-        // 4. Certificate NO 조합 (항상 0001부터 시작, Serial No.에 따라 페이지별 증가)
+        // 4. Certificate NO 조합용 날짜 문자열
         String formattedDateStr = request.getCertificateDate().replace("-", "");
-        String finalCertificateNo = "OP" + formattedDateStr + "0001";
 
-        // 5. PDF 파일 바이너리 생성 먼저 시도 (성공해야만 DB에 저장)
-        byte[] pdfContent;
+        // 5. Word 템플릿 치환 및 PDF 변환 (시리얼 번호별로 각각 수행 후 병합)
+        byte[] finalPdfContent;
         try {
-            pdfContent = pdfGenerationService.generateCertificatePdf(
-                    finalCertificateNo,
-                    request.getCertificateDate(),
-                    request.getCalibrationDate(),
-                    request.getExpiryDate(),
-                    request.getSerialNos());
-        } catch (DocumentException e) {
-            return buildErrorResponse("PDF 생성 중 라이브러리 예외가 발생했습니다: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+            List<byte[]> pdfPages = new ArrayList<>();
+            List<String> serialNos = request.getSerialNos();
+            for (int i = 0; i < serialNos.size(); i++) {
+                String serialNo = serialNos.get(i);
+                
+                // 페이지별로 0001부터 시작하여 증가 (예: 0001, 0002, 0003...)
+                String pageCertNo = String.format("OP%s%04d", formattedDateStr, (i + 1));
+
+                Map<String, String> variables = new HashMap<>();
+                variables.put("cno", pageCertNo);
+                variables.put("cedate", request.getCertificateDate().replace("-", "/"));
+                variables.put("pdate", request.getCalibrationDate().replace("-", "/"));
+                variables.put("edate", request.getExpiryDate().replace("-", "/"));
+                variables.put("sno", serialNo);
+
+                // 템플릿 치환하여 .docx 바이트 배열 생성
+                byte[] docxBytes = docxTemplateService.fillTemplate(variables);
+                // LibreOffice로 PDF 변환
+                byte[] pdfBytes = libreOfficePdfConverter.convertToPdf(docxBytes);
+                
+                pdfPages.add(pdfBytes);
+            }
+            
+            // 병합
+            finalPdfContent = libreOfficePdfConverter.mergePdfs(pdfPages);
+
         } catch (Exception e) {
+            e.printStackTrace();
             return buildErrorResponse("서버 내부 에러로 PDF 생성을 진행할 수 없습니다: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
         }
 
         // 6. PDF 생성이 성공한 경우에만 DB에 발급 내역 저장
-        saveToDatabase(finalCertificateNo, certDate, calDate, expDate, request.getSerialNos());
+        // (대표 식별자로 첫 번째 페이지의 인증번호 0001을 저장)
+        String baseCertificateNo = "OP" + formattedDateStr + "0001";
+        saveToDatabase(baseCertificateNo, certDate, calDate, expDate, request.getSerialNos());
 
         // 7. 바이너리 스트림 다운로드 헤더 정의 및 ResponseEntity 반환
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_PDF);
-        headers.setContentDispositionFormData("attachment", finalCertificateNo + ".pdf");
-        headers.setContentLength(pdfContent.length);
+        headers.setContentDispositionFormData("attachment", baseCertificateNo + ".pdf");
+        headers.setContentLength(finalPdfContent.length);
 
-        return new ResponseEntity<>(pdfContent, headers, HttpStatus.OK);
+        return new ResponseEntity<>(finalPdfContent, headers, HttpStatus.OK);
     }
 
     /**
