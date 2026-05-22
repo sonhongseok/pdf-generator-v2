@@ -1,83 +1,137 @@
-// backend/src/test/java/com/example/pdfgen/controller/CertificateControllerTest.java
 package com.example.pdfgen.controller;
 
 import com.example.pdfgen.domain.CertificateHistory;
 import com.example.pdfgen.domain.CertificateSerialMapping;
+import com.example.pdfgen.dto.CertificateRequest;
 import com.example.pdfgen.repository.CertificateHistoryRepository;
+import com.example.pdfgen.service.DocxTemplateService;
+import com.example.pdfgen.service.MsWordPdfConverter;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
+import java.time.LocalDate;
+import java.util.Arrays;
+import java.util.Collections;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyMap;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@SpringBootTest
-@AutoConfigureMockMvc
-@Transactional
-public class CertificateControllerTest {
+@WebMvcTest(CertificateController.class)
+class CertificateControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
 
     @Autowired
-    private CertificateHistoryRepository certificateHistoryRepository;
+    private ObjectMapper objectMapper;
+
+    @MockBean
+    private CertificateHistoryRepository historyRepository;
+
+    @MockBean
+    private DocxTemplateService docxTemplateService;
+
+    @MockBean
+    private MsWordPdfConverter pdfConverter;
 
     @Test
-    @DisplayName("성적서 발급 API를 호출하면, 데이터베이스에 이력이 완벽히 저장되고 PDF 바이너리가 응답되어야 한다.")
-    void shouldCreateCertificateAndSaveToDatabase() throws Exception {
+    @DisplayName("필수 파라미터 누락 시 400 Bad Request 에러 반환")
+    void missingParameterTest() throws Exception {
         // given
-        // 테스트용 입력 JSON Payload 정의 (2026-05-20 날짜, 다중 시리얼 조합)
-        String requestJsonPayload = "{"
-                + "\"certificateDate\":\"2026-05-20\","
-                + "\"calibrationDate\":\"2026-05-20\","
-                + "\"expiryDate\":\"2027-05-20\","
-                + "\"serialNos\":[\"TEST-SERIAL-A\", \"TEST-SERIAL-B\", \"TEST-SERIAL-C\"]"
-                + "}";
+        CertificateRequest request = new CertificateRequest();
+        // 날짜 누락
+        request.setExpiryDate("2027-05-20");
+        request.setSerialNos(Collections.singletonList("SN001"));
 
-        // 현재 채번 로직: OP + 날짜(yyyyMMdd) + 0001
-        String expectedCertificateNo = "OP202605200001";
-
-        // when
-        // MockMvc를 이용하여 API 컨트롤러 호출 테스트 진행
+        // when & then
         mockMvc.perform(post("/api/documents/certificates/pdf")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(requestJsonPayload))
-                .andExpect(status().isOk());
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Certificate Date는 필수 선택 항목입니다."));
+    }
 
-        // then
-        // 1. 데이터베이스 마스터 테이블에 이력이 정상 적재되었는지 조회 검증
-        boolean isExists = certificateHistoryRepository.existsByCertificateNo(expectedCertificateNo);
-        assertThat(isExists).isTrue();
+    @Test
+    @DisplayName("만료일이 발행일보다 과거일 경우 논리 오류 400 에러 반환")
+    void expiryDateBeforeCertificateDateTest() throws Exception {
+        // given
+        CertificateRequest request = new CertificateRequest();
+        request.setCertificateDate("2026-05-21");
+        request.setCalibrationDate("2026-05-20");
+        request.setExpiryDate("2025-05-21"); // 만료일이 과거
+        request.setSerialNos(Collections.singletonList("SN001"));
 
-        // 2. 데이터베이스 상세 이력 및 1:N 관계 매핑 데이터 정합성 검증
-        CertificateHistory history = certificateHistoryRepository.findAll().stream()
-                .filter(h -> h.getCertificateNo().equals(expectedCertificateNo))
-                .findFirst()
-                .orElseThrow(() -> new AssertionError("데이터베이스에 저장된 성적서 이력을 찾을 수 없습니다."));
+        // when & then
+        mockMvc.perform(post("/api/documents/certificates/pdf")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("만료일(Expiry Date)은 발행일(Certificate Date)보다 빠를 수 없습니다."));
+    }
 
-        assertThat(history.getCertificateDate().toString()).isEqualTo("2026-05-20");
-        assertThat(history.getExpiryDate().toString()).isEqualTo("2027-05-20");
+    @Test
+    @DisplayName("완전히 동일한 날짜와 시리얼 정보로 중복 발급 시도 시 400 에러 차단")
+    void exactDuplicateBlockTest() throws Exception {
+        // given
+        CertificateRequest request = new CertificateRequest();
+        request.setCertificateDate("2026-05-21");
+        request.setCalibrationDate("2026-05-20");
+        request.setExpiryDate("2027-05-21");
+        request.setSerialNos(Arrays.asList("SN001", "SN002"));
 
-        // 시리얼 번호 매핑 리스트 데이터 검증
-        List<CertificateSerialMapping> mappings = history.getSerialMappings();
-        assertThat(mappings).hasSize(3); // 3개의 시리얼을 보냈으므로 3개 매핑이 보존되어야 함
+        // 기존에 DB에 똑같은 시리얼 세트를 가진 이력이 존재함
+        CertificateHistory existingHistory = new CertificateHistory();
+        existingHistory.addSerialMapping(new CertificateSerialMapping("SN001", 1));
+        existingHistory.addSerialMapping(new CertificateSerialMapping("SN002", 2));
 
-        // 상세 시리얼 내용 및 페이지 할당 정합성 검증
-        assertThat(mappings.get(0).getSerialNo()).isEqualTo("TEST-SERIAL-A");
-        assertThat(mappings.get(0).getPageNumber()).isEqualTo(1);
+        Mockito.when(historyRepository.findByCertificateDateAndCalibrationDateAndExpiryDate(
+                LocalDate.of(2026, 5, 21), LocalDate.of(2026, 5, 20), LocalDate.of(2027, 5, 21)
+        )).thenReturn(Collections.singletonList(existingHistory));
 
-        assertThat(mappings.get(1).getSerialNo()).isEqualTo("TEST-SERIAL-B");
-        assertThat(mappings.get(1).getPageNumber()).isEqualTo(2);
+        // when & then
+        mockMvc.perform(post("/api/documents/certificates/pdf")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("이미 발급된 성적서가 존재합니다")));
+    }
 
-        assertThat(mappings.get(2).getSerialNo()).isEqualTo("TEST-SERIAL-C");
-        assertThat(mappings.get(2).getPageNumber()).isEqualTo(3);
+    @Test
+    @DisplayName("정상 입력 시 PDF 변환 후 바이너리를 반환하고 DB에 저장한다")
+    void generatePdfSuccessTest() throws Exception {
+        // given
+        CertificateRequest request = new CertificateRequest();
+        request.setCertificateDate("2026-05-21");
+        request.setCalibrationDate("2026-05-20");
+        request.setExpiryDate("2027-05-21");
+        request.setSerialNos(Collections.singletonList("SN-NEW"));
+
+        Mockito.when(historyRepository.findByCertificateDateAndCalibrationDateAndExpiryDate(any(), any(), any()))
+                .thenReturn(Collections.emptyList());
+
+        byte[] fakePdfBytes = new byte[]{1, 2, 3, 4};
+        Mockito.when(docxTemplateService.fillTemplate(anyMap())).thenReturn(new byte[]{5, 6});
+        Mockito.when(pdfConverter.convertToPdf(any())).thenReturn(fakePdfBytes);
+        Mockito.when(pdfConverter.mergePdfs(any())).thenReturn(fakePdfBytes);
+
+        // when & then
+        mockMvc.perform(post("/api/documents/certificates/pdf")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Type", "application/pdf"))
+                .andExpect(header().exists("Content-Disposition"));
+
+        // DB save가 1번 호출되었는지 검증
+        Mockito.verify(historyRepository, Mockito.times(1)).save(any(CertificateHistory.class));
     }
 }

@@ -6,7 +6,7 @@ import com.example.pdfgen.domain.CertificateSerialMapping;
 import com.example.pdfgen.dto.CertificateRequest;
 import com.example.pdfgen.repository.CertificateHistoryRepository;
 import com.example.pdfgen.service.DocxTemplateService;
-import com.example.pdfgen.service.LibreOfficePdfConverter;
+import com.example.pdfgen.service.MsWordPdfConverter;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -31,15 +31,15 @@ public class CertificateController {
 
     private final CertificateHistoryRepository certificateHistoryRepository;
     private final DocxTemplateService docxTemplateService;
-    private final LibreOfficePdfConverter libreOfficePdfConverter;
+    private final MsWordPdfConverter msWordPdfConverter;
 
     // 생성자 주입 및 기동 시 리소스 초기화
     public CertificateController(CertificateHistoryRepository certificateHistoryRepository,
             DocxTemplateService docxTemplateService,
-            LibreOfficePdfConverter libreOfficePdfConverter) {
+            MsWordPdfConverter msWordPdfConverter) {
         this.certificateHistoryRepository = certificateHistoryRepository;
         this.docxTemplateService = docxTemplateService;
-        this.libreOfficePdfConverter = libreOfficePdfConverter;
+        this.msWordPdfConverter = msWordPdfConverter;
 
         // 3단계 필수 리소스(한글 폰트 및 이미지 자산) 자동 준비
         ResourceInitializer.initializeResources();
@@ -123,13 +123,13 @@ public class CertificateController {
                 // 템플릿 치환하여 .docx 바이트 배열 생성
                 byte[] docxBytes = docxTemplateService.fillTemplate(variables);
                 // LibreOffice로 PDF 변환
-                byte[] pdfBytes = libreOfficePdfConverter.convertToPdf(docxBytes);
+                byte[] pdfBytes = msWordPdfConverter.convertToPdf(docxBytes);
                 
                 pdfPages.add(pdfBytes);
             }
             
             // 병합
-            finalPdfContent = libreOfficePdfConverter.mergePdfs(pdfPages);
+            finalPdfContent = msWordPdfConverter.mergePdfs(pdfPages);
 
         } catch (Exception e) {
             e.printStackTrace();

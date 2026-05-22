@@ -15,9 +15,9 @@ import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 @Service
-public class LibreOfficePdfConverter {
+public class MsWordPdfConverter {
 
-    // MS Word 변환 최대 대기 시간 (초)
+    // documents4j 변환 타임아웃 60초 설정
     private static final long CONVERSION_TIMEOUT_SECONDS = 60L;
 
     /**
