@@ -3,10 +3,12 @@ package com.example.pdfgen;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
 import org.apache.poi.xwpf.usermodel.XWPFParagraph;
 import org.apache.poi.xwpf.usermodel.XWPFRun;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.io.FileOutputStream;
 
+@Disabled("최초 뼈대 생성용 코드이므로, 사용자의 템플릿을 덮어쓰지 않도록 비활성화함")
 public class CreateTemplateTest {
     
     @Test
