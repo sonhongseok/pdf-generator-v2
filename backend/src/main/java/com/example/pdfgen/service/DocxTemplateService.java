@@ -16,10 +16,13 @@ import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTTcMar;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTTcPr;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.STTblWidth;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTTblWidth;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
 
 import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.InputStream;
 import java.math.BigInteger;
 import java.util.List;
@@ -28,21 +31,23 @@ import java.util.Map;
 @Service
 public class DocxTemplateService {
 
-    private static final String TEMPLATE_PATH = "templates/certificate_template.docx";
+    // application.yml에서 템플릿 외부 경로를 주입받음
+    @Value("${app.template.path:../certificate_template.docx}")
+    private String templatePath;
 
     // 강제 적용할 검정색 HEX 코드
     private static final String BLACK_COLOR = "000000";
 
     /**
-     * 템플릿을 읽어 변수를 치환한 뒤 byte 배열로 반환합니다. (poi-tl 사용)
+     * 외부 경로에 위치한 템플릿을 읽어 변수를 치환한 뒤 byte 배열로 반환합니다.
      */
     public byte[] fillTemplate(Map<String, String> variables) throws Exception {
-        ClassPathResource resource = new ClassPathResource(TEMPLATE_PATH);
-        if (!resource.exists()) {
-            throw new RuntimeException("Word 템플릿 파일을 찾을 수 없습니다: " + TEMPLATE_PATH);
+        File templateFile = new File(templatePath);
+        if (!templateFile.exists() || !templateFile.isFile()) {
+            throw new RuntimeException("Word 템플릿 파일을 찾을 수 없습니다: " + templateFile.getAbsolutePath());
         }
 
-        try (InputStream is = resource.getInputStream();
+        try (InputStream is = new FileInputStream(templateFile);
              ByteArrayOutputStream out = new ByteArrayOutputStream()) {
 
             // 단일 중괄호 { } 를 변수 태그로 인식하도록 설정
