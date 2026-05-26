@@ -4,6 +4,14 @@ echo ===================================================
 echo   Starting OP Certificate Generator (DEBUG)...
 echo ===================================================
 
+:: [사전 정리] 이전 세션의 잔류 WINWORD 프로세스 종료 (복구 다이얼로그 방지)
+taskkill /F /IM WINWORD.EXE /T >nul 2>&1
+
+:: [사전 정리] Word 비정상 종료 복구 다이얼로그 레지스트리 초기화
+:: 전원이 갑자기 꺼졌을 때도 다음 실행 시 복구 팝업이 뜨지 않게 함
+reg delete "HKCU\Software\Microsoft\Office\16.0\Word\Resiliency" /f >nul 2>&1
+reg delete "HKCU\Software\Microsoft\Office\15.0\Word\Resiliency" /f >nul 2>&1
+
 echo Checking port 8080...
 netstat -ano | findstr :8080 >nul
 if %errorlevel% neq 0 (

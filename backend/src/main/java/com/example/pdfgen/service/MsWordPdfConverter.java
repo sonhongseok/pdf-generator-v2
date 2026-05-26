@@ -1,9 +1,6 @@
 // backend/src/main/java/com/example/pdfgen/service/LibreOfficePdfConverter.java
 package com.example.pdfgen.service;
 
-import com.documents4j.api.DocumentType;
-import com.documents4j.api.IConverter;
-import com.documents4j.job.LocalConverter;
 import org.apache.pdfbox.multipdf.PDFMergerUtility;
 import org.springframework.stereotype.Service;
 
@@ -36,30 +33,43 @@ public class MsWordPdfConverter {
             // 2. docx 바이트를 임시 파일로 저장
             Files.write(docxPath, docxContent);
 
-            // 3. documents4j LocalConverter로 MS Word 호출하여 PDF 변환
-            IConverter converter = LocalConverter.builder()
-                    .workerPool(1, 1, 10, TimeUnit.SECONDS)
-                    .processTimeout(CONVERSION_TIMEOUT_SECONDS, TimeUnit.SECONDS)
-                    .build();
-            try {
-                try (InputStream docxIn = new FileInputStream(docxPath.toFile());
-                        OutputStream pdfOut = new FileOutputStream(pdfPath.toFile())) {
+            // 3. 커스텀 VBScript를 호출하여 PDF 변환 (documents4j 버그 우회)
+            File vbsScript = new File("docx2pdf.vbs");
+            if (!vbsScript.exists()) {
+                throw new RuntimeException("변환 스크립트를 찾을 수 없습니다: " + vbsScript.getAbsolutePath());
+            }
 
-                    boolean success = converter
-                            .convert(docxIn).as(DocumentType.DOCX)
-                            .to(pdfOut).as(DocumentType.PDF)
-                            .execute();
+            ProcessBuilder pb = new ProcessBuilder(
+                    "cscript.exe",
+                    "//nologo",
+                    vbsScript.getAbsolutePath(),
+                    docxPath.toAbsolutePath().toString(),
+                    pdfPath.toAbsolutePath().toString()
+            );
+            pb.redirectErrorStream(true);
+            Process process = pb.start();
 
-                    if (!success) {
-                        throw new RuntimeException("MS Word를 통한 PDF 변환에 실패했습니다.");
-                    }
+            // 최대 60초 대기
+            boolean finished = process.waitFor(CONVERSION_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+            if (!finished) {
+                process.destroyForcibly();
+                throw new RuntimeException("MS Word PDF 변환 시간이 초과되었습니다.");
+            }
+
+            int exitCode = process.exitValue();
+            if (exitCode != 0) {
+                // 스크립트 에러 내용 읽기
+                BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+                StringBuilder errorMsg = new StringBuilder();
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    errorMsg.append(line).append(" ");
                 }
-            } finally {
-                converter.shutDown();
+                throw new RuntimeException("MS Word 변환 스크립트 에러 (코드 " + exitCode + "): " + errorMsg.toString());
             }
 
             if (!Files.exists(pdfPath) || Files.size(pdfPath) == 0) {
-                throw new RuntimeException("변환된 PDF 파일이 생성되지 않았습니다: " + pdfPath);
+                throw new RuntimeException("변환된 PDF 파일이 생성되지 않았습니다.");
             }
 
             // 4. 생성된 PDF 바이트 배열로 읽어 반환
