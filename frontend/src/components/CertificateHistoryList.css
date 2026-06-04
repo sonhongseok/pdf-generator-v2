@@ -1,0 +1,153 @@
+/* frontend/src/components/CertificateHistoryList.css */
+.history-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    background: #F7F7F7;
+    border: 1px solid #000000;
+    box-sizing: border-box;
+    padding: 10px;
+}
+
+.history-status {
+    font-size: 13px;
+    color: #000000;
+    text-align: center;
+    margin-top: 20px;
+}
+
+/* 검색창 영역 */
+.history-search-bar {
+    margin-bottom: 10px;
+    display: flex;
+}
+
+.history-search-input {
+    flex: 1;
+    padding: 8px 12px;
+    border: 1px solid #000000;
+    border-radius: 4px;
+    font-size: 12px;
+    outline: none;
+}
+
+.history-search-input:focus {
+    border-color: #000000;
+    box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.2);
+}
+
+.table-wrapper {
+    flex: 1;
+    overflow-y: auto;
+    border: 1px solid #000000;
+}
+
+.history-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+}
+
+/* 헤더 */
+.history-table th {
+    background: #000000;
+    color: #FFFFFF;
+    border-bottom: 1px solid #000000;
+    border-right: 1px solid #333333;
+    padding: 6px;
+    text-align: center;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+.history-table th:last-child {
+    border-right: none;
+}
+
+/* 화살표 열 너비 */
+.col-arrow {
+    width: 28px;
+}
+
+/* 메인 데이터 행 */
+.history-row {
+    cursor: pointer;
+}
+
+.history-row td {
+    border-bottom: 1px solid #000000;
+    border-right: 1px solid #000000;
+    padding: 6px;
+    text-align: center;
+}
+
+.history-row td:last-child {
+    border-right: none;
+}
+
+.history-row:hover {
+    background: #F0F0F0;
+}
+
+.history-row.expanded {
+    background: #E0E0E0;
+}
+
+/* 화살표 아이콘 */
+.arrow-icon {
+    display: inline-block;
+    font-size: 9px;
+    color: #000000;
+    transition: transform 0.2s ease;
+}
+
+.arrow-icon.open {
+    transform: rotate(90deg);
+}
+
+/* 펼쳐진 시리얼 번호 행 */
+.serial-detail-row td {
+    border-bottom: 1px solid #000000;
+    padding: 0;
+    background: #F8F8F8;
+}
+
+.serial-detail-container {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 10px 16px;
+}
+
+.serial-detail-label {
+    font-size: 11px;
+    color: #000000;
+    white-space: nowrap;
+    padding-top: 3px;
+    font-weight: bold;
+}
+
+.serial-chip-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.serial-chip {
+    background: #FFFFFF;
+    border: 1px solid #000000;
+    border-radius: 3px;
+    padding: 2px 8px;
+    font-size: 11px;
+    color: #000000;
+    font-family: "Courier New", monospace;
+}
+
+/* 재다운로드 버튼 */
+.download-btn {
+    width: 80px;
+    height: 24px;
+    font-size: 11px;
+    margin: 0 auto;
+}

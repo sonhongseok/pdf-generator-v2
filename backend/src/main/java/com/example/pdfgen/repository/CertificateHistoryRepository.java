@@ -35,4 +35,11 @@ public interface CertificateHistoryRepository extends JpaRepository<CertificateH
     @EntityGraph(attributePaths = { "serialMappings" })
     List<CertificateHistory> findByCertificateDateAndCalibrationDateAndExpiryDate(
             LocalDate certificateDate, LocalDate calibrationDate, LocalDate expiryDate);
+
+    /**
+     * 모든 발급 이력을 최신순으로 조회.
+     * N+1 쿼리 방지를 위해 serialMappings를 함께 로딩.
+     */
+    @EntityGraph(attributePaths = { "serialMappings" })
+    List<CertificateHistory> findAllByOrderByCreatedDateDesc();
 }

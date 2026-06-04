@@ -15,7 +15,7 @@ public class CertificateHistory {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "certificate_no", nullable = false, unique = true, length = 50)
+    @Column(name = "certificate_no", nullable = false, length = 50)
     private String certificateNo;
 
     @Column(name = "certificate_date", nullable = false)

@@ -21,14 +21,18 @@ public class CertificateSerialMapping {
     @Column(name = "page_number", nullable = false)
     private Integer pageNumber;
 
+    @Column(name = "sequence_no")
+    private Integer sequenceNo;
+
     // JPA 기본 생성자
     public CertificateSerialMapping() {
     }
 
     // 편의 생성자
-    public CertificateSerialMapping(String serialNo, Integer pageNumber) {
+    public CertificateSerialMapping(String serialNo, Integer pageNumber, Integer sequenceNo) {
         this.serialNo = serialNo;
         this.pageNumber = pageNumber;
+        this.sequenceNo = sequenceNo;
     }
 
     // Getter and Setter
@@ -62,5 +66,13 @@ public class CertificateSerialMapping {
 
     public void setPageNumber(Integer pageNumber) {
         this.pageNumber = pageNumber;
+    }
+
+    public Integer getSequenceNo() {
+        return sequenceNo;
+    }
+
+    public void setSequenceNo(Integer sequenceNo) {
+        this.sequenceNo = sequenceNo;
     }
 }

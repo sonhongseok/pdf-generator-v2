@@ -90,8 +90,8 @@ class CertificateControllerTest {
 
         // 기존에 DB에 똑같은 시리얼 세트를 가진 이력이 존재함
         CertificateHistory existingHistory = new CertificateHistory();
-        existingHistory.addSerialMapping(new CertificateSerialMapping("SN001", 1));
-        existingHistory.addSerialMapping(new CertificateSerialMapping("SN002", 2));
+        existingHistory.addSerialMapping(new CertificateSerialMapping("SN001", 1, 1));
+        existingHistory.addSerialMapping(new CertificateSerialMapping("SN002", 2, 2));
 
         Mockito.when(historyRepository.findByCertificateDateAndCalibrationDateAndExpiryDate(
                 LocalDate.of(2026, 5, 21), LocalDate.of(2026, 5, 20), LocalDate.of(2027, 5, 21)

@@ -17,6 +17,10 @@ public class MsWordPdfConverter {
     // documents4j 변환 타임아웃 60초 설정
     private static final long CONVERSION_TIMEOUT_SECONDS = 60L;
 
+    // application.yml에서 VBS 스크립트 경로를 주입받음 (절대/상대 경로 모두 지원)
+    @org.springframework.beans.factory.annotation.Value("${app.vbs.script-path:./docx2pdf.vbs}")
+    private String vbsScriptPath;
+
     /**
      * 하나의 docx 바이트 배열을 PDF 바이트 배열로 변환.
      * documents4j 라이브러리를 통해 MS Word COM 자동화를 사용.
@@ -34,7 +38,8 @@ public class MsWordPdfConverter {
             Files.write(docxPath, docxContent);
 
             // 3. 커스텀 VBScript를 호출하여 PDF 변환 (documents4j 버그 우회)
-            File vbsScript = new File("docx2pdf.vbs");
+            // @Value로 주입된 경로 기준으로 절대경로를 계산하여 JVM 실행 디렉토리와 무관하게 동작
+            File vbsScript = new File(vbsScriptPath).getCanonicalFile();
             if (!vbsScript.exists()) {
                 throw new RuntimeException("변환 스크립트를 찾을 수 없습니다: " + vbsScript.getAbsolutePath());
             }

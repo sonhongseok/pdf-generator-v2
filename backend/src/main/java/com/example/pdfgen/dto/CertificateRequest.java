@@ -9,6 +9,10 @@ public class CertificateRequest {
     private String calibrationDate;
     private String expiryDate;
     private List<String> serialNos;
+    // 선택 입력: 시퀀스 시작 번호 (미입력 시 기본 로직 사용)
+    private String startSequenceNo;
+    // 생성 방식: "MERGED"(기본값, 통합 PDF) 또는 "INDIVIDUAL"(개별 PDF ZIP)
+    private String generateMode;
 
     // 기본 생성자
     public CertificateRequest() {
@@ -53,5 +57,21 @@ public class CertificateRequest {
 
     public void setSerialNos(List<String> serialNos) {
         this.serialNos = serialNos;
+    }
+
+    public String getStartSequenceNo() {
+        return startSequenceNo;
+    }
+
+    public void setStartSequenceNo(String startSequenceNo) {
+        this.startSequenceNo = startSequenceNo;
+    }
+
+    public String getGenerateMode() {
+        return generateMode;
+    }
+
+    public void setGenerateMode(String generateMode) {
+        this.generateMode = generateMode;
     }
 }
