@@ -68,44 +68,81 @@
   box-sizing: border-box;
 }
 
-.status-box {
-  max-width: 320px;
-  width: 100%;
-  height: 22px;
-  background: #FFFFFF;
-  border: 1px solid #000000;
+.success-bubble {
+  margin-top: 10px;
+  padding: 10px;
+  background: #f8f9fa;
+  border: 1px solid #20c997;
+  border-left: 4px solid #20c997;
+  color: #333333;
+  font-size: 12px;
+  max-width: 400px;
+  line-height: 1.4;
   box-sizing: border-box;
+}
+
+/* Progress Modal Styles (Matching user image) */
+.progress-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.3);
   display: flex;
   align-items: center;
-  padding-left: 6px;
-  position: relative;
-  overflow: hidden;
+  justify-content: center;
+  z-index: 9999;
 }
 
-.status-text {
-  font-size: 11px;
-  color: #000000;
+.progress-modal-content {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 40px 50px;
+  width: 450px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  box-sizing: border-box;
 }
 
-.progress-bar-fill {
-  height: 100%;
+.progress-modal-text {
+  font-size: 18px;
+  font-weight: 500;
+  color: #333333;
+  margin-bottom: 25px;
+}
+
+.progress-track {
   width: 100%;
-  background: linear-gradient(90deg, #000000 0%, #666666 50%, #000000 100%);
-  background-size: 200% 100%;
-  animation: progressAnim 1.5s infinite linear;
+  height: 10px;
+  background: #e9ecef;
+  border-radius: 5px;
+  overflow: hidden;
+  margin-bottom: 15px;
 }
 
-@keyframes progressAnim {
-  0% { background-position: 100% 0; }
-  100% { background-position: -100% 0; }
+.progress-fill {
+  height: 100%;
+  background: #20c997; /* 이미지와 동일한 에메랄드 그린 */
+  border-radius: 5px;
+  transition: width 0.3s ease;
+}
+
+.progress-percent {
+  font-size: 16px;
+  color: #6c757d;
+  font-weight: 500;
 }
 
 .error-bubble {
   margin-top: 10px;
   padding: 10px;
-  background: #FFFFFF;
-  border: 1px solid #000000;
-  color: #000000;
+  background: #fff5f5;
+  border: 1px solid #fa5252;
+  border-left: 4px solid #fa5252;
+  color: #333333;
   font-size: 12px;
   max-width: 400px;
   line-height: 1.4;

@@ -29,7 +29,8 @@ export default function CertificateForm() {
   const [startSeqText, setStartSeqText] = useState('');
 
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [statusMessage, setStatusMessage] = useState('Ready');
+  const [progressPercent, setProgressPercent] = useState(0);
+  const [statusMessage, setStatusMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   // 생성 방식: 'MERGED'(기본값, 통합 PDF) 또는 'INDIVIDUAL'(개별 PDF ZIP)
   const [generateMode, setGenerateMode] = useState('MERGED');
@@ -171,8 +172,19 @@ export default function CertificateForm() {
     if (!confirmed) return;
 
     setIsSubmitting(true);
+    setProgressPercent(0);
     setErrorMessage('');
     setStatusMessage('Generating PDF Certificates...');
+
+    // 로딩바 진행률 시뮬레이션
+    const intervalId = setInterval(() => {
+      setProgressPercent((prev) => {
+        if (prev >= 94) return prev;
+        if (prev >= 80) return prev + 1;
+        if (prev >= 50) return prev + 3;
+        return prev + 5;
+      });
+    }, 150);
 
     try {
       const payload = {
@@ -217,8 +229,17 @@ export default function CertificateForm() {
       document.body.removeChild(anchor);
       window.URL.revokeObjectURL(blobUrl);
 
+      clearInterval(intervalId);
+      setProgressPercent(100);
       setStatusMessage(`Success: [${certNoFormatted}] 발급 완료.`);
+
+      // 100% 달성 후 잠시 대기했다가 모달을 닫음
+      setTimeout(() => {
+        setIsSubmitting(false);
+        setProgressPercent(0);
+      }, 500);
     } catch (error) {
+      clearInterval(intervalId);
       console.error(error);
       let errMsg = 'PDF 생성에 실패했습니다.';
       if (error.response && error.response.data instanceof Blob) {
@@ -232,8 +253,10 @@ export default function CertificateForm() {
       }
       setErrorMessage(errMsg);
       setStatusMessage('Error: Operation failed');
-    } finally {
       setIsSubmitting(false);
+      setProgressPercent(0);
+    } finally {
+      // setIsSubmitting 상태 해제는 catch 블록이나 setTimeout 내에서 처리
     }
   };
 
@@ -325,13 +348,23 @@ export default function CertificateForm() {
         </div>
       </div>
 
-      <div className="status-box">
-        {isSubmitting ? (
-          <div className="progress-bar-fill" />
-        ) : (
-          <span className="status-text">{statusMessage}</span>
-        )}
-      </div>
+      {!isSubmitting && statusMessage && !errorMessage && (
+        <div className="success-bubble">
+          <strong>Info:</strong> {statusMessage}
+        </div>
+      )}
+
+      {isSubmitting && (
+        <div className="progress-modal-overlay">
+          <div className="progress-modal-content">
+            <div className="progress-modal-text">처리 중입니다. 잠시만 기다려주세요.</div>
+            <div className="progress-track">
+              <div className="progress-fill" style={{ width: `${progressPercent}%` }} />
+            </div>
+            <div className="progress-percent">{progressPercent}%</div>
+          </div>
+        </div>
+      )}
 
       {errorMessage && (
         <div className="error-bubble">

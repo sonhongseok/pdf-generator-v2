@@ -30,7 +30,7 @@
 | 항목 | 내용 |
 |---|---|
 | DBMS | MySQL |
-| 데이터베이스명 | `pdf_db` |
+| 데이터베이스명 | `pdf_db_v2` |
 | 연결 포트 | 3306 |
 | 타임존 | Asia/Seoul |
 | DDL 정책 | `ddl-auto: update` (서버 기동 시 테이블 자동 생성/변경) |
@@ -38,7 +38,7 @@
 ### 실행 환경 필수 조건
 | 항목 | 이유 |
 |---|---|
-| Microsoft Word 설치 | `documents4j`가 Windows COM 자동화를 통해 Word를 직접 실행하여 `.docx` → `.pdf` 변환 수행 |
+| Microsoft Word 설치 | `documents4j` 및 VBScript(`docx2pdf.vbs`)가 Windows COM 자동화를 통해 Word를 직접 실행하여 `.docx` → `.pdf` 변환 수행 |
 | MySQL 서버 실행 중 | 발급 이력 데이터 저장 및 중복 검사에 사용 |
 
 ---
@@ -54,7 +54,7 @@
 | `mysql-connector-j` | Boot 관리 버전 | Java ↔ MySQL 연결 드라이버 |
 | `poi-ooxml` | 5.2.5 | Word XML 구조 직접 조작 (정렬, 색상 후처리) |
 | `poi-tl` | 1.12.2 | MS Word(`docx`) 템플릿 기반 데이터 치환 라이브러리 |
-| `documents4j-local` | 1.1.7 | MS Word COM 자동화를 통한 `.docx` → `.pdf` 완벽 변환 |
+| `documents4j-local` | 1.1.7 | MS Word COM 자동화 기반 라이브러리 (버그 발생 시 VBScript로 폴백) |
 | `documents4j-transformer-msoffice-word` | 1.1.7 | `documents4j` Word 변환 플러그인 |
 | `pdfbox` | 2.0.30 | 다중 페이지 PDF 병합 처리 |
 | `h2` | Boot 관리 버전 | 테스트 전용 인메모리 DB (`scope: test`) |
@@ -137,14 +137,14 @@ pdf-generator/
 ## 4. 핵심 기능 설명
 
 ### 4-1. Word 템플릿 기반 PDF 성적서 자동 생성
-- 사용자가 4가지 정보를 입력하면 MS Word 템플릿(`certificate_template.docx`)에 데이터를 자동으로 치환한 뒤 PDF로 변환하여 다운로드합니다.
-- `documents4j` 라이브러리를 통해 PC에 설치된 MS Word를 직접 호출하므로, 서식이나 레이아웃의 깨짐 없이 완벽한 품질의 PDF가 생성됩니다.
+- 사용자가 정보를 입력하면 MS Word 템플릿(`certificate_template.docx`)에 데이터를 자동으로 치환한 뒤 PDF로 변환하여 다운로드합니다.
+- 변환 엔진은 1차적으로 `documents4j`를 사용하며, 환경 문제나 프로세스 행(Hang) 발생 시 내부 VBScript(`docx2pdf.vbs`)를 호출하는 폴백 로직이 구현되어 있어 안정적인 PDF 변환을 보장합니다.
 - 코드로 표를 직접 그리는 방식(하드코딩)에서 벗어나 **MS Word 템플릿 방식**을 도입, 비개발자도 Word에서 직접 폰트와 레이아웃을 수정할 수 있도록 설계되었습니다.
 
-### 4-2. 외부 경로 템플릿 분리 (`app.template.path`)
-- 템플릿 파일은 `application.yml`의 `app.template.path` 설정값으로 경로를 지정합니다.
-- 기본값은 `../certificate_template.docx`로, 백엔드 폴더 상위(= 프로젝트 루트)의 파일을 참조합니다.
+### 4-2. 외부 경로 템플릿 분리 및 VBScript 연동 (`app.template.path`, `app.vbs.script-path`)
+- 템플릿 파일은 `application.yml`의 `app.template.path` (기본값: `../certificate_template.docx`)를 통해 외부에 분리되어 관리됩니다.
 - 서버를 재시작하지 않아도 이 파일만 수정하면 **즉시 반영**됩니다.
+- PDF 변환을 위한 VBScript 경로 역시 `app.vbs.script-path`를 통해 외부에서 주입받아 유연하게 관리됩니다.
 
 ```yaml
 # application.yml
@@ -183,20 +183,40 @@ app:
 
 ```json
 {
-  "certificateDate": "2026-05-26",
-  "calibrationDate": "2026-05-20",
-  "expiryDate": "2027-05-20",
-  "serialNos": ["SN-001", "SN-002"]
+  "certificateDate": "2026-06-05",
+  "calibrationDate": "2026-06-05",
+  "expiryDate": "2027-06-05",
+  "serialNos": ["SN-001", "SN-002"],
+  "generateMode": "MERGED",
+  "startSequenceNo": "0001"
 }
 ```
 
-**Response (성공)** — HTTP 200
+| 필드 | 타입 | 필수 | 설명 |
+|---|---|---|---|
+| `certificateDate` | String | ✅ | 발행일 (`YYYY-MM-DD`) |
+| `calibrationDate` | String | ✅ | 교정일 (`YYYY-MM-DD`) |
+| `expiryDate` | String | ✅ | 만료일 (`YYYY-MM-DD`) |
+| `serialNos` | String[] | ✅ | 시리얼 번호 목록 (최소 1개, 중복 불가) |
+| `generateMode` | String | ❌ | `"MERGED"` (기본값, 통합 PDF) 또는 `"INDIVIDUAL"` (개별 PDF ZIP) |
+| `startSequenceNo` | String | ❌ | 시작 일련번호 (미입력 시 `0001` 자동 적용, 단일값 또는 시리얼 개수만큼 공백 구분 다중값) |
+
+**Response (성공, MERGED)** — HTTP 200
 
 ```
 Content-Type: application/pdf
-Content-Disposition: attachment; filename="OP202605260001.pdf"
+Content-Disposition: attachment; filename="OP202606050001.pdf"
 
 <binary PDF data>
+```
+
+**Response (성공, INDIVIDUAL)** — HTTP 200
+
+```
+Content-Type: application/zip
+Content-Disposition: attachment; filename="OP202606050001.zip"
+
+<binary ZIP data>
 ```
 
 **Response (실패)** — HTTP 400

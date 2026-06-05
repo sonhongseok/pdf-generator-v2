@@ -7,6 +7,7 @@ export default function CertificateHistoryList() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [downloadingId, setDownloadingId] = useState(null);
+    const [progressPercent, setProgressPercent] = useState(0);
     const [expandedId, setExpandedId] = useState(null);
     const [searchTerm, setSearchTerm] = useState("");
 
@@ -34,8 +35,21 @@ export default function CertificateHistoryList() {
     const handleDownload = async (event, id, certificateNo, mode) => {
         // 행 클릭(펼치기)과 버튼 클릭 이벤트가 겹치지 않도록 이벤트 전파 차단
         event.stopPropagation();
+        let intervalId;
         try {
             setDownloadingId(id);
+            setProgressPercent(0);
+
+            // 로딩바 진행률 시뮬레이션
+            intervalId = setInterval(() => {
+                setProgressPercent((prev) => {
+                    if (prev >= 94) return prev;
+                    if (prev >= 80) return prev + 1;
+                    if (prev >= 50) return prev + 3;
+                    return prev + 5;
+                });
+            }, 150);
+
             const response = await fetch(`/api/documents/certificates/${id}/download?mode=${mode}`);
             if (!response.ok) {
                 const errData = await response.json();
@@ -61,10 +75,21 @@ export default function CertificateHistoryList() {
             link.click();
             link.remove();
             window.URL.revokeObjectURL(url);
+
+            clearInterval(intervalId);
+            setProgressPercent(100);
+
+            // 100% 달성 후 잠시 대기했다가 모달을 닫음
+            setTimeout(() => {
+                setDownloadingId(null);
+                setProgressPercent(0);
+            }, 500);
+
         } catch (err) {
+            clearInterval(intervalId);
             alert(err.message);
-        } finally {
             setDownloadingId(null);
+            setProgressPercent(0);
         }
     };
 
@@ -185,6 +210,18 @@ export default function CertificateHistoryList() {
                             }))}
                         </tbody>
                     </table>
+                </div>
+            )}
+
+            {downloadingId && (
+                <div className="progress-modal-overlay">
+                    <div className="progress-modal-content">
+                        <div className="progress-modal-text">재발급 다운로드 처리 중입니다. 잠시만 기다려주세요.</div>
+                        <div className="progress-track">
+                            <div className="progress-fill" style={{ width: `${progressPercent}%` }} />
+                        </div>
+                        <div className="progress-percent">{progressPercent}%</div>
+                    </div>
                 </div>
             )}
         </div>
